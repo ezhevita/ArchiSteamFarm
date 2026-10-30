@@ -220,9 +220,9 @@ public sealed class Commands {
 					case "FBADD":
 						return await SingleBot(Bot, access, args[1], Cmd<HashSet<uint>>(ResponseFarmingBlacklistAdd), ParseAppIDs).ConfigureAwait(false);
 					case "FBRM" when args.Length > 2:
-						return await ResponseFarmingBlacklistRemove(access, args[1], Utilities.GetArgsAsText(args, 2, ","), steamID).ConfigureAwait(false);
+						return await Aggregate(access, args[1], Utilities.GetArgsAsText(args, 2, ","), Cmd<WildcardHashSet<uint>>(ResponseFarmingBlacklistRemove), ParseWildcardAppIDs, steamID).ConfigureAwait(false);
 					case "FBRM":
-						return ResponseFarmingBlacklistRemove(access, args[1]);
+						return await SingleBot(Bot, access, args[1], Cmd<WildcardHashSet<uint>>(ResponseFarmingBlacklistRemove), ParseWildcardAppIDs).ConfigureAwait(false);
 					case "FQ":
 						return await Aggregate(access, Utilities.GetArgsAsText(args, 1, ","), Cmd(ResponseFarmingQueue), steamID).ConfigureAwait(false);
 					case "FQADD" when args.Length > 2:
@@ -230,9 +230,9 @@ public sealed class Commands {
 					case "FQADD":
 						return await SingleBot(Bot, access, args[1], Cmd<HashSet<uint>>(ResponseFarmingQueueAdd), ParseAppIDs).ConfigureAwait(false);
 					case "FQRM" when args.Length > 2:
-						return await ResponseFarmingQueueRemove(access, args[1], Utilities.GetArgsAsText(args, 2, ","), steamID).ConfigureAwait(false);
+						return await Aggregate(access, args[1], Utilities.GetArgsAsText(args, 2, ","), Cmd<WildcardHashSet<uint>>(ResponseFarmingQueueRemove), ParseWildcardAppIDs, steamID).ConfigureAwait(false);
 					case "FQRM":
-						return ResponseFarmingQueueRemove(access, args[1]);
+						return await SingleBot(Bot, access, args[1], Cmd<WildcardHashSet<uint>>(ResponseFarmingQueueRemove), ParseWildcardAppIDs).ConfigureAwait(false);
 					case "HASH" when args.Length > 2:
 						return ResponseHash(access, args[1], Utilities.GetArgsAsText(message, 2));
 					case "INPUT" when args.Length > 3:
@@ -268,9 +268,9 @@ public sealed class Commands {
 					case "MABADD":
 						return await SingleBot(Bot, access, args[1], Cmd<HashSet<uint>>(ResponseMatchActivelyBlacklistAdd), ParseAppIDs).ConfigureAwait(false);
 					case "MABRM" when args.Length > 2:
-						return await ResponseMatchActivelyBlacklistRemove(access, args[1], Utilities.GetArgsAsText(args, 2, ","), steamID).ConfigureAwait(false);
+						return await Aggregate(access, args[1], Utilities.GetArgsAsText(args, 2, ","), Cmd<WildcardHashSet<uint>>(ResponseMatchActivelyBlacklistRemove), ParseWildcardAppIDs, steamID).ConfigureAwait(false);
 					case "MABRM":
-						return ResponseMatchActivelyBlacklistRemove(access, args[1]);
+						return await SingleBot(Bot, access, args[1], Cmd<WildcardHashSet<uint>>(ResponseMatchActivelyBlacklistRemove), ParseWildcardAppIDs).ConfigureAwait(false);
 					case "NICKNAME" when args.Length > 2:
 						return await Aggregate(access, args[1], Utilities.GetArgsAsText(message, 2), Cmd<string>(ResponseNickname), steamID).ConfigureAwait(false);
 					case "NICKNAME":
@@ -308,7 +308,7 @@ public sealed class Commands {
 					case "R^" or "REDEEM^" when args.Length > 2:
 						return await SingleBot(Bot, access, args[1], args[2], (b, a, k, rf) => b.Commands.ResponseRedeem(a, k, steamID, rf), ParseAdvancedRedeem).ConfigureAwait(false);
 					case "RL" or "RMLICENCE" or "RMLICENSE" when args.Length > 2:
-						return await ResponseRemoveLicense(access, args[1], Utilities.GetArgsAsText(args, 2, ","), steamID).ConfigureAwait(false);
+						return await Aggregate(access, args[1], Utilities.GetArgsAsText(args, 2, ","), Cmd<string>(ResponseRemoveLicense), steamID).ConfigureAwait(false);
 					case "RL" or "RMLICENCE" or "RMLICENSE":
 						return await ResponseRemoveLicense(access, args[1]).ConfigureAwait(false);
 					case "RP" or "REDEEMPOINTS" when args.Length > 2:
@@ -332,9 +332,9 @@ public sealed class Commands {
 					case "TBADD":
 						return await SingleBot(Bot, access, args[1], Cmd<HashSet<ulong>>(ResponseTradingBlacklistAdd), ParseSteamIDs).ConfigureAwait(false);
 					case "TBRM" when args.Length > 2:
-						return await ResponseTradingBlacklistRemove(access, args[1], Utilities.GetArgsAsText(args, 2, ","), steamID).ConfigureAwait(false);
+						return await Aggregate(access, args[1], Utilities.GetArgsAsText(args, 2, ","), Cmd<WildcardHashSet<ulong>>(ResponseTradingBlacklistRemove), ParseWildcardSteamIDs, steamID).ConfigureAwait(false);
 					case "TBRM":
-						return ResponseTradingBlacklistRemove(access, args[1]);
+						return await SingleBot(Bot, access, args[1], Cmd<WildcardHashSet<ulong>>(ResponseTradingBlacklistRemove), ParseWildcardSteamIDs).ConfigureAwait(false);
 					case "TRANSFER" when args.Length > 2:
 						return await Aggregate(access, args[1], Utilities.GetArgsAsText(message, 2), Cmd<Bot>(ResponseTransfer), ParseBot, steamID).ConfigureAwait(false);
 					case "TRANSFER":
@@ -953,40 +953,51 @@ public sealed class Commands {
 		return FormatBotResponse(Strings.Done);
 	}
 
-	private string? ResponseFarmingBlacklistRemove(EAccess access, string targetAppIDs) {
-		if (!Enum.IsDefined(access)) {
-			throw new InvalidEnumArgumentException(nameof(access), (int) access, typeof(EAccess));
-		}
-
+	private WildcardHashSet<uint> ParseWildcardAppIDs(string targetAppIDs) {
 		ArgumentException.ThrowIfNullOrEmpty(targetAppIDs);
-
-		if (access < EAccess.Master) {
-			return null;
-		}
 
 		string[] targets = targetAppIDs.Split(SharedInfo.ListElementSeparators, StringSplitOptions.RemoveEmptyEntries);
 
 		if (targets.Length == 0) {
-			return FormatBotResponse(Strings.FormatErrorIsEmpty(nameof(targets)));
+			throw new ArgumentException(Strings.FormatErrorIsEmpty(nameof(targets)));
 		}
 
 		HashSet<uint> appIDs = [];
+		bool allSelected = false;
 
 		foreach (string target in targets) {
 			switch (target.ToUpperInvariant()) {
 				case "ALL":
-					appIDs.UnionWith(Bot.BotDatabase.FarmingBlacklistAppIDs);
+					allSelected = true;
 
 					break;
 				default:
 					if (!SteamUtilities.TryParseGameIdentifier(target, EGameIdentifier.Application, out EGameIdentifier? type, out uint appID) || (type != EGameIdentifier.Application)) {
-						return FormatBotResponse(Strings.FormatErrorParsingObject(nameof(appID)));
+						throw new ArgumentException(Strings.FormatErrorParsingObject(nameof(appID)));
 					}
 
 					appIDs.Add(appID);
 
 					break;
 			}
+		}
+
+		return new WildcardHashSet<uint>(allSelected, appIDs);
+	}
+
+	private string? ResponseFarmingBlacklistRemove(EAccess access, WildcardHashSet<uint> selectedAppIDs) {
+		if (!Enum.IsDefined(access)) {
+			throw new InvalidEnumArgumentException(nameof(access), (int) access, typeof(EAccess));
+		}
+
+		if (access < EAccess.Master) {
+			return null;
+		}
+
+		HashSet<uint> appIDs = [.. selectedAppIDs.Values];
+
+		if (selectedAppIDs.AllSelected) {
+			appIDs.UnionWith(Bot.BotDatabase.FarmingBlacklistAppIDs);
 		}
 
 		if (!Bot.BotDatabase.FarmingBlacklistAppIDs.RemoveRange(appIDs)) {
@@ -998,27 +1009,6 @@ public sealed class Commands {
 		}
 
 		return FormatBotResponse(Strings.Done);
-	}
-
-	private static async Task<string?> ResponseFarmingBlacklistRemove(EAccess access, string botNames, string targetAppIDs, ulong steamID = 0) {
-		if (!Enum.IsDefined(access)) {
-			throw new InvalidEnumArgumentException(nameof(access), (int) access, typeof(EAccess));
-		}
-
-		ArgumentException.ThrowIfNullOrEmpty(botNames);
-		ArgumentException.ThrowIfNullOrEmpty(targetAppIDs);
-
-		HashSet<Bot>? bots = Bot.GetBots(botNames);
-
-		if ((bots == null) || (bots.Count == 0)) {
-			return access >= EAccess.Owner ? FormatStaticResponse(Strings.FormatBotNotFound(botNames)) : null;
-		}
-
-		IList<string?> results = await Utilities.InParallel(bots.Select(bot => Task.Run(() => bot.Commands.ResponseFarmingBlacklistRemove(GetProxyAccess(bot, access, steamID), targetAppIDs)))).ConfigureAwait(false);
-
-		List<string> responses = [.. results.Where(static result => !string.IsNullOrEmpty(result)).Select(static result => result!)];
-
-		return responses.Count > 0 ? string.Join(Environment.NewLine, responses) : null;
 	}
 
 	private string? ResponseFarmingQueue(EAccess access) {
@@ -1062,40 +1052,19 @@ public sealed class Commands {
 		return FormatBotResponse(Strings.Done);
 	}
 
-	private string? ResponseFarmingQueueRemove(EAccess access, string targetAppIDs) {
+	private string? ResponseFarmingQueueRemove(EAccess access, WildcardHashSet<uint> selectedAppIDs) {
 		if (!Enum.IsDefined(access)) {
 			throw new InvalidEnumArgumentException(nameof(access), (int) access, typeof(EAccess));
 		}
-
-		ArgumentException.ThrowIfNullOrEmpty(targetAppIDs);
 
 		if (access < EAccess.Master) {
 			return null;
 		}
 
-		string[] targets = targetAppIDs.Split(SharedInfo.ListElementSeparators, StringSplitOptions.RemoveEmptyEntries);
+		HashSet<uint> appIDs = [.. selectedAppIDs.Values];
 
-		if (targets.Length == 0) {
-			return FormatBotResponse(Strings.FormatErrorIsEmpty(nameof(targets)));
-		}
-
-		HashSet<uint> appIDs = [];
-
-		foreach (string target in targets) {
-			switch (target.ToUpperInvariant()) {
-				case "ALL":
-					appIDs.UnionWith(Bot.BotDatabase.FarmingPriorityQueueAppIDs);
-
-					break;
-				default:
-					if (!SteamUtilities.TryParseGameIdentifier(target, EGameIdentifier.Application, out EGameIdentifier? type, out uint appID) || (type != EGameIdentifier.Application)) {
-						return FormatBotResponse(Strings.FormatErrorParsingObject(nameof(appID)));
-					}
-
-					appIDs.Add(appID);
-
-					break;
-			}
+		if (selectedAppIDs.AllSelected) {
+			appIDs.UnionWith(Bot.BotDatabase.FarmingPriorityQueueAppIDs);
 		}
 
 		if (!Bot.BotDatabase.FarmingPriorityQueueAppIDs.RemoveRange(appIDs)) {
@@ -1111,27 +1080,6 @@ public sealed class Commands {
 		}
 
 		return FormatBotResponse(Strings.Done);
-	}
-
-	private static async Task<string?> ResponseFarmingQueueRemove(EAccess access, string botNames, string targetAppIDs, ulong steamID = 0) {
-		if (!Enum.IsDefined(access)) {
-			throw new InvalidEnumArgumentException(nameof(access), (int) access, typeof(EAccess));
-		}
-
-		ArgumentException.ThrowIfNullOrEmpty(botNames);
-		ArgumentException.ThrowIfNullOrEmpty(targetAppIDs);
-
-		HashSet<Bot>? bots = Bot.GetBots(botNames);
-
-		if ((bots == null) || (bots.Count == 0)) {
-			return access >= EAccess.Owner ? FormatStaticResponse(Strings.FormatBotNotFound(botNames)) : null;
-		}
-
-		IList<string?> results = await Utilities.InParallel(bots.Select(bot => Task.Run(() => bot.Commands.ResponseFarmingQueueRemove(GetProxyAccess(bot, access, steamID), targetAppIDs)))).ConfigureAwait(false);
-
-		List<string> responses = [.. results.Where(static result => !string.IsNullOrEmpty(result)).Select(static result => result!)];
-
-		return responses.Count > 0 ? string.Join(Environment.NewLine, responses) : null;
 	}
 
 	private static string? ResponseHash(EAccess access, string hashingMethodText, string stringToHash) {
@@ -1317,64 +1265,22 @@ public sealed class Commands {
 		return FormatBotResponse(Bot.BotDatabase.MatchActivelyBlacklistAppIDs.AddRange(appIDs) ? Strings.Done : Strings.NothingFound);
 	}
 
-	private string? ResponseMatchActivelyBlacklistRemove(EAccess access, string targetAppIDs) {
+	private string? ResponseMatchActivelyBlacklistRemove(EAccess access, WildcardHashSet<uint> selectedAppIDs) {
 		if (!Enum.IsDefined(access)) {
 			throw new InvalidEnumArgumentException(nameof(access), (int) access, typeof(EAccess));
 		}
-
-		ArgumentException.ThrowIfNullOrEmpty(targetAppIDs);
 
 		if (access < EAccess.Master) {
 			return null;
 		}
 
-		string[] targets = targetAppIDs.Split(SharedInfo.ListElementSeparators, StringSplitOptions.RemoveEmptyEntries);
+		HashSet<uint> appIDs = [.. selectedAppIDs.Values];
 
-		if (targets.Length == 0) {
-			return FormatBotResponse(Strings.FormatErrorIsEmpty(nameof(targets)));
-		}
-
-		HashSet<uint> appIDs = [];
-
-		foreach (string target in targets) {
-			switch (target.ToUpperInvariant()) {
-				case "ALL":
-					appIDs.UnionWith(Bot.BotDatabase.MatchActivelyBlacklistAppIDs);
-
-					break;
-				default:
-					if (!SteamUtilities.TryParseGameIdentifier(target, EGameIdentifier.Application, out EGameIdentifier? type, out uint appID) || (type != EGameIdentifier.Application)) {
-						return FormatBotResponse(Strings.FormatErrorParsingObject(nameof(appID)));
-					}
-
-					appIDs.Add(appID);
-
-					break;
-			}
+		if (selectedAppIDs.AllSelected) {
+			appIDs.UnionWith(Bot.BotDatabase.MatchActivelyBlacklistAppIDs);
 		}
 
 		return FormatBotResponse(Bot.BotDatabase.MatchActivelyBlacklistAppIDs.RemoveRange(appIDs) ? Strings.Done : Strings.NothingFound);
-	}
-
-	private static async Task<string?> ResponseMatchActivelyBlacklistRemove(EAccess access, string botNames, string targetAppIDs, ulong steamID = 0) {
-		if (!Enum.IsDefined(access)) {
-			throw new InvalidEnumArgumentException(nameof(access), (int) access, typeof(EAccess));
-		}
-
-		ArgumentException.ThrowIfNullOrEmpty(botNames);
-		ArgumentException.ThrowIfNullOrEmpty(targetAppIDs);
-
-		HashSet<Bot>? bots = Bot.GetBots(botNames);
-
-		if ((bots == null) || (bots.Count == 0)) {
-			return access >= EAccess.Owner ? FormatStaticResponse(Strings.FormatBotNotFound(botNames)) : null;
-		}
-
-		IList<string?> results = await Utilities.InParallel(bots.Select(bot => Task.Run(() => bot.Commands.ResponseMatchActivelyBlacklistRemove(GetProxyAccess(bot, access, steamID), targetAppIDs)))).ConfigureAwait(false);
-
-		List<string> responses = [.. results.Where(static result => !string.IsNullOrEmpty(result)).Select(static result => result!)];
-
-		return responses.Count > 0 ? string.Join(Environment.NewLine, responses) : null;
 	}
 
 	private string? ResponseNickname(EAccess access, string nickname) {
@@ -2329,27 +2235,6 @@ public sealed class Commands {
 		return response.Length > 0 ? response.ToString() : null;
 	}
 
-	private static async Task<string?> ResponseRemoveLicense(EAccess access, string botNames, string query, ulong steamID = 0) {
-		if (!Enum.IsDefined(access)) {
-			throw new InvalidEnumArgumentException(nameof(access), (int) access, typeof(EAccess));
-		}
-
-		ArgumentException.ThrowIfNullOrEmpty(botNames);
-		ArgumentException.ThrowIfNullOrEmpty(query);
-
-		HashSet<Bot>? bots = Bot.GetBots(botNames);
-
-		if ((bots == null) || (bots.Count == 0)) {
-			return access >= EAccess.Owner ? FormatStaticResponse(Strings.FormatBotNotFound(botNames)) : null;
-		}
-
-		IList<string?> results = await Utilities.InParallel(bots.Select(bot => bot.Commands.ResponseRemoveLicense(GetProxyAccess(bot, access, steamID), query))).ConfigureAwait(false);
-
-		List<string> responses = [.. results.Where(static result => !string.IsNullOrEmpty(result)).Select(static result => result!)];
-
-		return responses.Count > 0 ? string.Join(Environment.NewLine, responses) : null;
-	}
-
 	private async Task<string?> ResponseReset(EAccess access) {
 		if (!Enum.IsDefined(access)) {
 			throw new InvalidEnumArgumentException(nameof(access), (int) access, typeof(EAccess));
@@ -2553,34 +2438,27 @@ public sealed class Commands {
 		return FormatBotResponse(Bot.BotDatabase.TradingBlacklistSteamIDs.AddRange(targetIDs) ? Strings.Done : Strings.NothingFound);
 	}
 
-	private string? ResponseTradingBlacklistRemove(EAccess access, string targetSteamIDs) {
-		if (!Enum.IsDefined(access)) {
-			throw new InvalidEnumArgumentException(nameof(access), (int) access, typeof(EAccess));
-		}
-
-		ArgumentException.ThrowIfNullOrEmpty(targetSteamIDs);
-
-		if (access < EAccess.Master) {
-			return null;
-		}
+	private static WildcardHashSet<ulong> ParseWildcardSteamIDs(string targetSteamIDs) {
+		ArgumentNullException.ThrowIfNull(targetSteamIDs);
 
 		string[] targets = targetSteamIDs.Split(SharedInfo.ListElementSeparators, StringSplitOptions.RemoveEmptyEntries);
 
 		if (targets.Length == 0) {
-			return FormatBotResponse(Strings.FormatErrorIsEmpty(nameof(targets)));
+			throw new ArgumentException(Strings.FormatErrorIsEmpty(nameof(targets)));
 		}
 
 		HashSet<ulong> targetIDs = [];
+		bool allSelected = false;
 
 		foreach (string target in targets) {
 			switch (target.ToUpperInvariant()) {
 				case "ALL":
-					targetIDs.UnionWith(Bot.BotDatabase.TradingBlacklistSteamIDs);
+					allSelected = true;
 
 					break;
 				default:
 					if (!ulong.TryParse(target, out ulong targetID) || (targetID == 0) || !new SteamID(targetID).IsIndividualAccount) {
-						return FormatBotResponse(Strings.FormatErrorParsingObject(nameof(targetID)));
+						throw new ArgumentException(Strings.FormatErrorParsingObject(nameof(targetID)));
 					}
 
 					targetIDs.Add(targetID);
@@ -2589,28 +2467,25 @@ public sealed class Commands {
 			}
 		}
 
-		return FormatBotResponse(Bot.BotDatabase.TradingBlacklistSteamIDs.RemoveRange(targetIDs) ? Strings.Done : Strings.NothingFound);
+		return new WildcardHashSet<ulong>(allSelected, targetIDs);
 	}
 
-	private static async Task<string?> ResponseTradingBlacklistRemove(EAccess access, string botNames, string targetSteamIDs, ulong steamID = 0) {
+	private string? ResponseTradingBlacklistRemove(EAccess access, WildcardHashSet<ulong> selectedSteamIDs) {
 		if (!Enum.IsDefined(access)) {
 			throw new InvalidEnumArgumentException(nameof(access), (int) access, typeof(EAccess));
 		}
 
-		ArgumentException.ThrowIfNullOrEmpty(botNames);
-		ArgumentException.ThrowIfNullOrEmpty(targetSteamIDs);
-
-		HashSet<Bot>? bots = Bot.GetBots(botNames);
-
-		if ((bots == null) || (bots.Count == 0)) {
-			return access >= EAccess.Owner ? FormatStaticResponse(Strings.FormatBotNotFound(botNames)) : null;
+		if (access < EAccess.Master) {
+			return null;
 		}
 
-		IList<string?> results = await Utilities.InParallel(bots.Select(bot => Task.Run(() => bot.Commands.ResponseTradingBlacklistRemove(GetProxyAccess(bot, access, steamID), targetSteamIDs)))).ConfigureAwait(false);
+		HashSet<ulong> targetIDs = [.. selectedSteamIDs.Values];
 
-		List<string> responses = [.. results.Where(static result => !string.IsNullOrEmpty(result)).Select(static result => result!)];
+		if (selectedSteamIDs.AllSelected) {
+			targetIDs.UnionWith(Bot.BotDatabase.TradingBlacklistSteamIDs);
+		}
 
-		return responses.Count > 0 ? string.Join(Environment.NewLine, responses) : null;
+		return FormatBotResponse(Bot.BotDatabase.TradingBlacklistSteamIDs.RemoveRange(targetIDs) ? Strings.Done : Strings.NothingFound);
 	}
 
 	private Bot ParseBot(string botNameTo) {
