@@ -44,6 +44,7 @@ using JetBrains.Annotations;
 using SteamKit2;
 using SteamKit2.Internal;
 using SteamKit2.WebUI.Internal;
+using static ArchiSteamFarm.Steam.Interaction.CommandHelpers;
 
 namespace ArchiSteamFarm.Steam.Interaction;
 
@@ -191,43 +192,43 @@ public sealed class Commands {
 			default:
 				switch (args[0].ToUpperInvariant()) {
 					case "2FA":
-						return await Response2FA(access, Utilities.GetArgsAsText(args, 1, ","), steamID).ConfigureAwait(false);
+						return await Aggregate(access, Utilities.GetArgsAsText(args, 1, ","), Cmd(Response2FA), steamID).ConfigureAwait(false);
 					case "2FANO":
-						return await Response2FAConfirm(access, Utilities.GetArgsAsText(args, 1, ","), false, steamID).ConfigureAwait(false);
+						return await Aggregate(access, Utilities.GetArgsAsText(args, 1, ","), static (b, a) => b.Commands.Response2FAConfirm(a, false), steamID).ConfigureAwait(false);
 					case "2FAOK":
-						return await Response2FAConfirm(access, Utilities.GetArgsAsText(args, 1, ","), true, steamID).ConfigureAwait(false);
+						return await Aggregate(access, Utilities.GetArgsAsText(args, 1, ","), static (b, a) => b.Commands.Response2FAConfirm(a, true), steamID).ConfigureAwait(false);
 					case "AL" or "ADDLICENCE" or "ADDLICENSE" when args.Length > 2:
-						return await ResponseAddLicense(access, args[1], Utilities.GetArgsAsText(args, 2, ","), steamID).ConfigureAwait(false);
+						return await Aggregate(access, args[1], Utilities.GetArgsAsText(args, 2, ","), Cmd<string>(ResponseAddLicense), steamID).ConfigureAwait(false);
 					case "AL" or "ADDLICENCE" or "ADDLICENSE":
 						return await ResponseAddLicense(access, args[1]).ConfigureAwait(false);
 					case "ALA":
-						return await ResponseAddLicense(access, SharedInfo.ASF, Utilities.GetArgsAsText(args, 1, ","), steamID).ConfigureAwait(false);
+						return await Aggregate(access, Utilities.GetArgsAsText(args, 1, ","), SharedInfo.ASF, Cmd<string>(ResponseAddLicense), steamID).ConfigureAwait(false);
 					case "BALANCE":
-						return await ResponseWalletBalance(access, Utilities.GetArgsAsText(args, 1, ","), steamID).ConfigureAwait(false);
+						return await Aggregate(access, Utilities.GetArgsAsText(args, 1, ","), Cmd(ResponseWalletBalance), steamID).ConfigureAwait(false);
 					case "BGR":
-						return await ResponseBackgroundGamesRedeemer(access, Utilities.GetArgsAsText(args, 1, ","), steamID).ConfigureAwait(false);
+						return await Aggregate(access, Utilities.GetArgsAsText(args, 1, ","), Cmd(ResponseBackgroundGamesRedeemer), steamID).ConfigureAwait(false);
 					case "BGRCLEAR":
-						return await ResponseBackgroundGamesRedeemerClear(access, Utilities.GetArgsAsText(args, 1, ","), steamID).ConfigureAwait(false);
+						return await Aggregate(access, Utilities.GetArgsAsText(args, 1, ","), Cmd(ResponseBackgroundGamesRedeemerClear), steamID).ConfigureAwait(false);
 					case "ENCRYPT" when args.Length > 2:
 						return ResponseEncrypt(access, args[1], Utilities.GetArgsAsText(message, 2));
 					case "FARM":
-						return await ResponseFarm(access, Utilities.GetArgsAsText(args, 1, ","), steamID).ConfigureAwait(false);
+						return await Aggregate(access, Utilities.GetArgsAsText(args, 1, ","), Cmd(ResponseFarm), steamID).ConfigureAwait(false);
 					case "FB":
-						return await ResponseFarmingBlacklist(access, Utilities.GetArgsAsText(args, 1, ","), steamID).ConfigureAwait(false);
+						return await Aggregate(access, Utilities.GetArgsAsText(args, 1, ","), Cmd(ResponseFarmingBlacklist), steamID).ConfigureAwait(false);
 					case "FBADD" when args.Length > 2:
-						return await ResponseFarmingBlacklistAdd(access, args[1], Utilities.GetArgsAsText(args, 2, ","), steamID).ConfigureAwait(false);
+						return await Aggregate(access, args[1], Utilities.GetArgsAsText(args, 2, ","), Cmd<HashSet<uint>>(ResponseFarmingBlacklistAdd), ParseTargetAppIDs, steamID).ConfigureAwait(false);
 					case "FBADD":
-						return ResponseFarmingBlacklistAdd(access, args[1]);
+						return await SingleBot(Bot, access, args[1], Cmd<HashSet<uint>>(ResponseFarmingBlacklistAdd), ParseTargetAppIDs).ConfigureAwait(false);
 					case "FBRM" when args.Length > 2:
 						return await ResponseFarmingBlacklistRemove(access, args[1], Utilities.GetArgsAsText(args, 2, ","), steamID).ConfigureAwait(false);
 					case "FBRM":
 						return ResponseFarmingBlacklistRemove(access, args[1]);
 					case "FQ":
-						return await ResponseFarmingQueue(access, Utilities.GetArgsAsText(args, 1, ","), steamID).ConfigureAwait(false);
+						return await Aggregate(access, Utilities.GetArgsAsText(args, 1, ","), Cmd(ResponseFarmingQueue), steamID).ConfigureAwait(false);
 					case "FQADD" when args.Length > 2:
-						return await ResponseFarmingQueueAdd(access, args[1], Utilities.GetArgsAsText(args, 2, ","), steamID).ConfigureAwait(false);
+						return await Aggregate(access, args[1], Utilities.GetArgsAsText(args, 2, ","), Cmd<HashSet<uint>>(ResponseFarmingQueueAdd), ParseTargetAppIDs, steamID).ConfigureAwait(false);
 					case "FQADD":
-						return ResponseFarmingQueueAdd(access, args[1]);
+						return await SingleBot(Bot, access, args[1], Cmd<HashSet<uint>>(ResponseFarmingQueueAdd), ParseTargetAppIDs).ConfigureAwait(false);
 					case "FQRM" when args.Length > 2:
 						return await ResponseFarmingQueueRemove(access, args[1], Utilities.GetArgsAsText(args, 2, ","), steamID).ConfigureAwait(false);
 					case "FQRM":
@@ -235,23 +236,23 @@ public sealed class Commands {
 					case "HASH" when args.Length > 2:
 						return ResponseHash(access, args[1], Utilities.GetArgsAsText(message, 2));
 					case "INPUT" when args.Length > 3:
-						return await ResponseInput(access, args[1], args[2], Utilities.GetArgsAsText(message, 3), steamID).ConfigureAwait(false);
+						return await Aggregate(access, args[1], args[2], Utilities.GetArgsAsText(message, 3), Cmd<ASF.EUserInputType, string>(ResponseInput), ParseInput, steamID);
 					case "INPUT" when args.Length > 2:
-						return ResponseInput(access, args[1], args[2]);
+						return await SingleBot(Bot, access, args[1], args[2], Cmd<ASF.EUserInputType, string>(ResponseInput), ParseInput);
 					case "INVENTORY":
-						return await ResponseInventory(access, Utilities.GetArgsAsText(args, 1, ","), steamID).ConfigureAwait(false);
+						return await Aggregate(access, Utilities.GetArgsAsText(args, 1, ","), Cmd(ResponseInventory), steamID);
 					case "LEVEL":
-						return await ResponseLevel(access, Utilities.GetArgsAsText(args, 1, ","), steamID).ConfigureAwait(false);
+						return await Aggregate(access, Utilities.GetArgsAsText(args, 1, ","), Cmd(ResponseLevel), steamID);
 					case "LOOT":
-						return await ResponseLoot(access, Utilities.GetArgsAsText(args, 1, ","), steamID).ConfigureAwait(false);
+						return await Aggregate(access, Utilities.GetArgsAsText(args, 1, ","), Cmd(ResponseLoot), steamID);
 					case "LOOT^" when args.Length > 3:
-						return await ResponseAdvancedLoot(access, args[1], args[2], Utilities.GetArgsAsText(message, 3), steamID).ConfigureAwait(false);
+						return await Aggregate(access, args[1], args[2], Utilities.GetArgsAsText(message, 3), Cmd<uint, ulong>(ResponseAdvancedLoot), steamID);
 					case "LOOT^" when args.Length > 2:
-						return await ResponseAdvancedLoot(access, args[1], args[2]).ConfigureAwait(false);
+						return await SingleBot(Bot, access, args[1], args[2], Cmd<uint, ulong>(ResponseAdvancedLoot));
 					case "LOOT&" when args.Length > 4:
-						return await ResponseAdvancedLootByAssetRarity(access, args[1], args[2], args[3], Utilities.GetArgsAsText(args, 4, ",")).ConfigureAwait(false);
+						return await Aggregate(access, args[1], args[2], args[3], Utilities.GetArgsAsText(args, 4, ","), Cmd<uint, ulong, HashSet<EAssetRarity>>(ResponseAdvancedLootByAssetRarity), ParseAdvancedLootByAssetRarity, steamID);
 					case "LOOT&" when args.Length > 3:
-						return await ResponseAdvancedLootByAssetRarity(access, args[1], args[2], args[3]).ConfigureAwait(false);
+						return await SingleBot(Bot, access, args[1], args[2], args[3], Cmd<uint, ulong, HashSet<EAssetRarity>>(ResponseAdvancedLootByAssetRarity), ParseAdvancedLootByAssetRarity);
 					case "LOOT@" when args.Length > 2:
 						return await ResponseLootByRealAppIDs(access, args[1], Utilities.GetArgsAsText(args, 2, ","), false, steamID).ConfigureAwait(false);
 					case "LOOT@":
@@ -579,26 +580,6 @@ public sealed class Commands {
 		return FormatBotResponse(success && !string.IsNullOrEmpty(token) ? Strings.FormatBotAuthenticatorToken(token) : Strings.FormatWarningFailedWithError(message));
 	}
 
-	private static async Task<string?> Response2FA(EAccess access, string botNames, ulong steamID = 0) {
-		if (!Enum.IsDefined(access)) {
-			throw new InvalidEnumArgumentException(nameof(access), (int) access, typeof(EAccess));
-		}
-
-		ArgumentException.ThrowIfNullOrEmpty(botNames);
-
-		HashSet<Bot>? bots = Bot.GetBots(botNames);
-
-		if ((bots == null) || (bots.Count == 0)) {
-			return access >= EAccess.Owner ? FormatStaticResponse(Strings.FormatBotNotFound(botNames)) : null;
-		}
-
-		IList<string?> results = await Utilities.InParallel(bots.Select(bot => bot.Commands.Response2FA(GetProxyAccess(bot, access, steamID)))).ConfigureAwait(false);
-
-		List<string> responses = [.. results.Where(static result => !string.IsNullOrEmpty(result)).Select(static result => result!)];
-
-		return responses.Count > 0 ? string.Join(Environment.NewLine, responses) : null;
-	}
-
 	private async Task<string?> Response2FAConfirm(EAccess access, bool confirm) {
 		if (!Enum.IsDefined(access)) {
 			throw new InvalidEnumArgumentException(nameof(access), (int) access, typeof(EAccess));
@@ -619,26 +600,6 @@ public sealed class Commands {
 		(bool success, _, string message) = await Bot.Actions.HandleTwoFactorAuthenticationConfirmations(confirm).ConfigureAwait(false);
 
 		return FormatBotResponse(success ? message : Strings.FormatWarningFailedWithError(message));
-	}
-
-	private static async Task<string?> Response2FAConfirm(EAccess access, string botNames, bool confirm, ulong steamID = 0) {
-		if (!Enum.IsDefined(access)) {
-			throw new InvalidEnumArgumentException(nameof(access), (int) access, typeof(EAccess));
-		}
-
-		ArgumentException.ThrowIfNullOrEmpty(botNames);
-
-		HashSet<Bot>? bots = Bot.GetBots(botNames);
-
-		if ((bots == null) || (bots.Count == 0)) {
-			return access >= EAccess.Owner ? FormatStaticResponse(Strings.FormatBotNotFound(botNames)) : null;
-		}
-
-		IList<string?> results = await Utilities.InParallel(bots.Select(bot => bot.Commands.Response2FAConfirm(GetProxyAccess(bot, access, steamID), confirm))).ConfigureAwait(false);
-
-		List<string> responses = [.. results.Where(static result => !string.IsNullOrEmpty(result)).Select(static result => result!)];
-
-		return responses.Count > 0 ? string.Join(Environment.NewLine, responses) : null;
 	}
 
 	private async Task<string?> ResponseAddLicense(EAccess access, string query) {
@@ -718,34 +679,13 @@ public sealed class Commands {
 		return response.Length > 0 ? response.ToString() : null;
 	}
 
-	private static async Task<string?> ResponseAddLicense(EAccess access, string botNames, string query, ulong steamID = 0) {
+	private async Task<string?> ResponseAdvancedLoot(EAccess access, uint appID, ulong contextID) {
 		if (!Enum.IsDefined(access)) {
 			throw new InvalidEnumArgumentException(nameof(access), (int) access, typeof(EAccess));
 		}
 
-		ArgumentException.ThrowIfNullOrEmpty(botNames);
-		ArgumentException.ThrowIfNullOrEmpty(query);
-
-		HashSet<Bot>? bots = Bot.GetBots(botNames);
-
-		if ((bots == null) || (bots.Count == 0)) {
-			return access >= EAccess.Owner ? FormatStaticResponse(Strings.FormatBotNotFound(botNames)) : null;
-		}
-
-		IList<string?> results = await Utilities.InParallel(bots.Select(bot => bot.Commands.ResponseAddLicense(GetProxyAccess(bot, access, steamID), query))).ConfigureAwait(false);
-
-		List<string> responses = [.. results.Where(static result => !string.IsNullOrEmpty(result)).Select(static result => result!)];
-
-		return responses.Count > 0 ? string.Join(Environment.NewLine, responses) : null;
-	}
-
-	private async Task<string?> ResponseAdvancedLoot(EAccess access, string targetAppID, string targetContextID) {
-		if (!Enum.IsDefined(access)) {
-			throw new InvalidEnumArgumentException(nameof(access), (int) access, typeof(EAccess));
-		}
-
-		ArgumentException.ThrowIfNullOrEmpty(targetAppID);
-		ArgumentException.ThrowIfNullOrEmpty(targetContextID);
+		ArgumentOutOfRangeException.ThrowIfEqual(appID, 0U);
+		ArgumentOutOfRangeException.ThrowIfEqual(contextID, 0UL);
 
 		if (access < EAccess.Master) {
 			return null;
@@ -753,14 +693,6 @@ public sealed class Commands {
 
 		if (!Bot.IsConnectedAndLoggedOn) {
 			return FormatBotResponse(Strings.BotNotConnected);
-		}
-
-		if (!uint.TryParse(targetAppID, out uint appID) || (appID == 0)) {
-			return FormatBotResponse(Strings.FormatErrorIsInvalid(nameof(appID)));
-		}
-
-		if (!ulong.TryParse(targetContextID, out ulong contextID) || (contextID == 0)) {
-			return FormatBotResponse(Strings.FormatErrorIsInvalid(nameof(contextID)));
 		}
 
 		(bool success, string message) = await Bot.Actions.SendInventory(appID, contextID).ConfigureAwait(false);
@@ -768,36 +700,38 @@ public sealed class Commands {
 		return FormatBotResponse(success ? message : Strings.FormatWarningFailedWithError(message));
 	}
 
-	private static async Task<string?> ResponseAdvancedLoot(EAccess access, string botNames, string appID, string contextID, ulong steamID = 0) {
-		if (!Enum.IsDefined(access)) {
-			throw new InvalidEnumArgumentException(nameof(access), (int) access, typeof(EAccess));
+	private (uint AppID, ulong ContextID, HashSet<EAssetRarity> AssetRarities) ParseAdvancedLootByAssetRarity(string targetAppID, string targetContextID, string assetRaritiesText) {
+		if (!uint.TryParse(targetAppID, out uint appID) || (appID == 0)) {
+			throw new ArgumentException(Strings.FormatErrorIsInvalid(nameof(appID)));
 		}
 
-		ArgumentException.ThrowIfNullOrEmpty(botNames);
-		ArgumentException.ThrowIfNullOrEmpty(appID);
-		ArgumentException.ThrowIfNullOrEmpty(contextID);
-
-		HashSet<Bot>? bots = Bot.GetBots(botNames);
-
-		if ((bots == null) || (bots.Count == 0)) {
-			return access >= EAccess.Owner ? FormatStaticResponse(Strings.FormatBotNotFound(botNames)) : null;
+		if (!ulong.TryParse(targetContextID, out ulong contextID) || (contextID == 0)) {
+			throw new ArgumentException(Strings.FormatErrorIsInvalid(nameof(contextID)));
 		}
 
-		IList<string?> results = await Utilities.InParallel(bots.Select(bot => bot.Commands.ResponseAdvancedLoot(GetProxyAccess(bot, access, steamID), appID, contextID))).ConfigureAwait(false);
+		string[] assetRaritiesArgs = assetRaritiesText.Split(SharedInfo.ListElementSeparators, StringSplitOptions.RemoveEmptyEntries);
 
-		List<string> responses = [.. results.Where(static result => !string.IsNullOrEmpty(result)).Select(static result => result!)];
+		HashSet<EAssetRarity> assetRarities = [];
 
-		return responses.Count > 0 ? string.Join(Environment.NewLine, responses) : null;
+		foreach (string assetRarityArg in assetRaritiesArgs) {
+			if (!Enum.TryParse(assetRarityArg, true, out EAssetRarity assetRarity) || !Enum.IsDefined(assetRarity)) {
+				throw new ArgumentException(Strings.FormatErrorIsInvalid(nameof(assetRarities)));
+			}
+
+			assetRarities.Add(assetRarity);
+		}
+
+		return (appID, contextID, assetRarities);
 	}
 
-	private async Task<string?> ResponseAdvancedLootByAssetRarity(EAccess access, string targetAppID, string targetContextID, string assetRaritiesText) {
+	private async Task<string?> ResponseAdvancedLootByAssetRarity(EAccess access, uint appID, ulong contextID, HashSet<EAssetRarity> assetRarities) {
 		if (!Enum.IsDefined(access)) {
 			throw new InvalidEnumArgumentException(nameof(access), (int) access, typeof(EAccess));
 		}
 
-		ArgumentException.ThrowIfNullOrEmpty(targetAppID);
-		ArgumentException.ThrowIfNullOrEmpty(targetContextID);
-		ArgumentException.ThrowIfNullOrEmpty(assetRaritiesText);
+		ArgumentOutOfRangeException.ThrowIfEqual(appID, 0U);
+		ArgumentOutOfRangeException.ThrowIfEqual(contextID, 0UL);
+		ArgumentNullException.ThrowIfNull(assetRarities);
 
 		if (access < EAccess.Master) {
 			return null;
@@ -807,46 +741,9 @@ public sealed class Commands {
 			return FormatBotResponse(Strings.BotNotConnected);
 		}
 
-		if (!uint.TryParse(targetAppID, out uint appID) || (appID == 0)) {
-			return FormatBotResponse(Strings.FormatErrorIsInvalid(nameof(appID)));
-		}
-
-		if (!ulong.TryParse(targetContextID, out ulong contextID) || (contextID == 0)) {
-			return FormatBotResponse(Strings.FormatErrorIsInvalid(nameof(contextID)));
-		}
-
-		HashSet<EAssetRarity>? assetRarities = ParseAssetRarities(assetRaritiesText);
-
-		if ((assetRarities == null) || (assetRarities.Count == 0)) {
-			return FormatBotResponse(Strings.FormatErrorIsInvalid(nameof(assetRarities)));
-		}
-
 		(bool success, string message) = await Bot.Actions.SendInventory(appID, contextID, filterFunction: item => assetRarities.Contains(item.Rarity)).ConfigureAwait(false);
 
 		return FormatBotResponse(success ? message : Strings.FormatWarningFailedWithError(message));
-	}
-
-	private static async Task<string?> ResponseAdvancedLootByAssetRarity(EAccess access, string botNames, string appID, string contextID, string assetRaritiesText, ulong steamID = 0) {
-		if (!Enum.IsDefined(access)) {
-			throw new InvalidEnumArgumentException(nameof(access), (int) access, typeof(EAccess));
-		}
-
-		ArgumentException.ThrowIfNullOrEmpty(botNames);
-		ArgumentException.ThrowIfNullOrEmpty(appID);
-		ArgumentException.ThrowIfNullOrEmpty(contextID);
-		ArgumentException.ThrowIfNullOrEmpty(assetRaritiesText);
-
-		HashSet<Bot>? bots = Bot.GetBots(botNames);
-
-		if ((bots == null) || (bots.Count == 0)) {
-			return access >= EAccess.Owner ? FormatStaticResponse(Strings.FormatBotNotFound(botNames)) : null;
-		}
-
-		IList<string?> results = await Utilities.InParallel(bots.Select(bot => bot.Commands.ResponseAdvancedLootByAssetRarity(GetProxyAccess(bot, access, steamID), appID, contextID, assetRaritiesText))).ConfigureAwait(false);
-
-		List<string> responses = [.. results.Where(static result => !string.IsNullOrEmpty(result)).Select(static result => result!)];
-
-		return responses.Count > 0 ? string.Join(Environment.NewLine, responses) : null;
 	}
 
 	private async Task<string?> ResponseAdvancedRedeem(EAccess access, string options, string keys, ulong steamID = 0) {
@@ -1151,26 +1048,6 @@ public sealed class Commands {
 		return FormatBotResponse(Strings.FormatBotGamesToRedeemInBackgroundCount(count));
 	}
 
-	private static async Task<string?> ResponseBackgroundGamesRedeemer(EAccess access, string botNames, ulong steamID = 0) {
-		if (!Enum.IsDefined(access)) {
-			throw new InvalidEnumArgumentException(nameof(access), (int) access, typeof(EAccess));
-		}
-
-		ArgumentException.ThrowIfNullOrEmpty(botNames);
-
-		HashSet<Bot>? bots = Bot.GetBots(botNames);
-
-		if ((bots == null) || (bots.Count == 0)) {
-			return access >= EAccess.Owner ? FormatStaticResponse(Strings.FormatBotNotFound(botNames)) : null;
-		}
-
-		IList<string?> results = await Utilities.InParallel(bots.Select(bot => Task.Run(() => bot.Commands.ResponseBackgroundGamesRedeemer(GetProxyAccess(bot, access, steamID))))).ConfigureAwait(false);
-
-		List<string> responses = [.. results.Where(static result => !string.IsNullOrEmpty(result)).Select(static result => result!)];
-
-		return responses.Count > 0 ? string.Join(Environment.NewLine, responses) : null;
-	}
-
 	private string? ResponseBackgroundGamesRedeemerClear(EAccess access) {
 		if (!Enum.IsDefined(access)) {
 			throw new InvalidEnumArgumentException(nameof(access), (int) access, typeof(EAccess));
@@ -1183,26 +1060,6 @@ public sealed class Commands {
 		Bot.BotDatabase.ClearGamesToRedeemInBackground();
 
 		return FormatBotResponse(Strings.Done);
-	}
-
-	private static async Task<string?> ResponseBackgroundGamesRedeemerClear(EAccess access, string botNames, ulong steamID = 0) {
-		if (!Enum.IsDefined(access)) {
-			throw new InvalidEnumArgumentException(nameof(access), (int) access, typeof(EAccess));
-		}
-
-		ArgumentException.ThrowIfNullOrEmpty(botNames);
-
-		HashSet<Bot>? bots = Bot.GetBots(botNames);
-
-		if ((bots == null) || (bots.Count == 0)) {
-			return access >= EAccess.Owner ? FormatStaticResponse(Strings.FormatBotNotFound(botNames)) : null;
-		}
-
-		IList<string?> results = await Utilities.InParallel(bots.Select(bot => Task.Run(() => bot.Commands.ResponseBackgroundGamesRedeemerClear(GetProxyAccess(bot, access, steamID))))).ConfigureAwait(false);
-
-		List<string> responses = [.. results.Where(static result => !string.IsNullOrEmpty(result)).Select(static result => result!)];
-
-		return responses.Count > 0 ? string.Join(Environment.NewLine, responses) : null;
 	}
 
 	private static string? ResponseEncrypt(EAccess access, string cryptoMethodText, string stringToEncrypt) {
@@ -1262,26 +1119,6 @@ public sealed class Commands {
 		return FormatBotResponse(Strings.Done);
 	}
 
-	private static async Task<string?> ResponseFarm(EAccess access, string botNames, ulong steamID = 0) {
-		if (!Enum.IsDefined(access)) {
-			throw new InvalidEnumArgumentException(nameof(access), (int) access, typeof(EAccess));
-		}
-
-		ArgumentException.ThrowIfNullOrEmpty(botNames);
-
-		HashSet<Bot>? bots = Bot.GetBots(botNames);
-
-		if ((bots == null) || (bots.Count == 0)) {
-			return access >= EAccess.Owner ? FormatStaticResponse(Strings.FormatBotNotFound(botNames)) : null;
-		}
-
-		IList<string?> results = await Utilities.InParallel(bots.Select(bot => bot.Commands.ResponseFarm(GetProxyAccess(bot, access, steamID)))).ConfigureAwait(false);
-
-		List<string> responses = [.. results.Where(static result => !string.IsNullOrEmpty(result)).Select(static result => result!)];
-
-		return responses.Count > 0 ? string.Join(Environment.NewLine, responses) : null;
-	}
-
 	private string? ResponseFarmingBlacklist(EAccess access) {
 		if (!Enum.IsDefined(access)) {
 			throw new InvalidEnumArgumentException(nameof(access), (int) access, typeof(EAccess));
@@ -1290,51 +1127,35 @@ public sealed class Commands {
 		return access < EAccess.Master ? null : FormatBotResponse(Bot.BotDatabase.FarmingBlacklistAppIDs.Count == 0 ? Strings.FormatErrorIsEmpty(nameof(Bot.BotDatabase.FarmingBlacklistAppIDs)) : string.Join(", ", Bot.BotDatabase.FarmingBlacklistAppIDs));
 	}
 
-	private static async Task<string?> ResponseFarmingBlacklist(EAccess access, string botNames, ulong steamID = 0) {
-		if (!Enum.IsDefined(access)) {
-			throw new InvalidEnumArgumentException(nameof(access), (int) access, typeof(EAccess));
-		}
-
-		ArgumentException.ThrowIfNullOrEmpty(botNames);
-
-		HashSet<Bot>? bots = Bot.GetBots(botNames);
-
-		if ((bots == null) || (bots.Count == 0)) {
-			return access >= EAccess.Owner ? FormatStaticResponse(Strings.FormatBotNotFound(botNames)) : null;
-		}
-
-		IList<string?> results = await Utilities.InParallel(bots.Select(bot => Task.Run(() => bot.Commands.ResponseFarmingBlacklist(GetProxyAccess(bot, access, steamID))))).ConfigureAwait(false);
-
-		List<string> responses = [.. results.Where(static result => !string.IsNullOrEmpty(result)).Select(static result => result!)];
-
-		return responses.Count > 0 ? string.Join(Environment.NewLine, responses) : null;
-	}
-
-	private string? ResponseFarmingBlacklistAdd(EAccess access, string targetAppIDs) {
-		if (!Enum.IsDefined(access)) {
-			throw new InvalidEnumArgumentException(nameof(access), (int) access, typeof(EAccess));
-		}
-
-		ArgumentException.ThrowIfNullOrEmpty(targetAppIDs);
-
-		if (access < EAccess.Master) {
-			return null;
-		}
-
+	private static HashSet<uint> ParseTargetAppIDs(string targetAppIDs) {
 		string[] targets = targetAppIDs.Split(SharedInfo.ListElementSeparators, StringSplitOptions.RemoveEmptyEntries);
 
 		if (targets.Length == 0) {
-			return FormatBotResponse(Strings.FormatErrorIsEmpty(nameof(targets)));
+			throw new ArgumentException(Strings.FormatErrorIsEmpty(nameof(targets)));
 		}
 
 		HashSet<uint> appIDs = [];
 
 		foreach (string target in targets) {
 			if (!SteamUtilities.TryParseGameIdentifier(target, EGameIdentifier.Application, out EGameIdentifier? type, out uint appID) || (type != EGameIdentifier.Application)) {
-				return FormatBotResponse(Strings.FormatErrorParsingObject(nameof(appID)));
+				throw new InvalidOperationException(Strings.FormatErrorParsingObject(nameof(appID)));
 			}
 
 			appIDs.Add(appID);
+		}
+
+		return appIDs;
+	}
+
+	private string? ResponseFarmingBlacklistAdd(EAccess access, HashSet<uint> appIDs) {
+		if (!Enum.IsDefined(access)) {
+			throw new InvalidEnumArgumentException(nameof(access), (int) access, typeof(EAccess));
+		}
+
+		ArgumentNullException.ThrowIfNull(appIDs);
+
+		if (access < EAccess.Master) {
+			return null;
 		}
 
 		if (!Bot.BotDatabase.FarmingBlacklistAppIDs.AddRange(appIDs)) {
@@ -1350,27 +1171,6 @@ public sealed class Commands {
 		}
 
 		return FormatBotResponse(Strings.Done);
-	}
-
-	private static async Task<string?> ResponseFarmingBlacklistAdd(EAccess access, string botNames, string targetAppIDs, ulong steamID = 0) {
-		if (!Enum.IsDefined(access)) {
-			throw new InvalidEnumArgumentException(nameof(access), (int) access, typeof(EAccess));
-		}
-
-		ArgumentException.ThrowIfNullOrEmpty(botNames);
-		ArgumentException.ThrowIfNullOrEmpty(targetAppIDs);
-
-		HashSet<Bot>? bots = Bot.GetBots(botNames);
-
-		if ((bots == null) || (bots.Count == 0)) {
-			return access >= EAccess.Owner ? FormatStaticResponse(Strings.FormatBotNotFound(botNames)) : null;
-		}
-
-		IList<string?> results = await Utilities.InParallel(bots.Select(bot => Task.Run(() => bot.Commands.ResponseFarmingBlacklistAdd(GetProxyAccess(bot, access, steamID), targetAppIDs)))).ConfigureAwait(false);
-
-		List<string> responses = [.. results.Where(static result => !string.IsNullOrEmpty(result)).Select(static result => result!)];
-
-		return responses.Count > 0 ? string.Join(Environment.NewLine, responses) : null;
 	}
 
 	private string? ResponseFarmingBlacklistRemove(EAccess access, string targetAppIDs) {
@@ -1449,51 +1249,15 @@ public sealed class Commands {
 		return access < EAccess.Master ? null : FormatBotResponse(Bot.BotDatabase.FarmingPriorityQueueAppIDs.Count == 0 ? Strings.FormatErrorIsEmpty(nameof(Bot.BotDatabase.FarmingPriorityQueueAppIDs)) : string.Join(", ", Bot.BotDatabase.FarmingPriorityQueueAppIDs));
 	}
 
-	private static async Task<string?> ResponseFarmingQueue(EAccess access, string botNames, ulong steamID = 0) {
+	private string? ResponseFarmingQueueAdd(EAccess access, HashSet<uint> appIDs) {
 		if (!Enum.IsDefined(access)) {
 			throw new InvalidEnumArgumentException(nameof(access), (int) access, typeof(EAccess));
 		}
 
-		ArgumentException.ThrowIfNullOrEmpty(botNames);
-
-		HashSet<Bot>? bots = Bot.GetBots(botNames);
-
-		if ((bots == null) || (bots.Count == 0)) {
-			return access >= EAccess.Owner ? FormatStaticResponse(Strings.FormatBotNotFound(botNames)) : null;
-		}
-
-		IList<string?> results = await Utilities.InParallel(bots.Select(bot => Task.Run(() => bot.Commands.ResponseFarmingQueue(GetProxyAccess(bot, access, steamID))))).ConfigureAwait(false);
-
-		List<string> responses = [.. results.Where(static result => !string.IsNullOrEmpty(result)).Select(static result => result!)];
-
-		return responses.Count > 0 ? string.Join(Environment.NewLine, responses) : null;
-	}
-
-	private string? ResponseFarmingQueueAdd(EAccess access, string targetAppIDs) {
-		if (!Enum.IsDefined(access)) {
-			throw new InvalidEnumArgumentException(nameof(access), (int) access, typeof(EAccess));
-		}
-
-		ArgumentException.ThrowIfNullOrEmpty(targetAppIDs);
+		ArgumentNullException.ThrowIfNull(appIDs);
 
 		if (access < EAccess.Master) {
 			return null;
-		}
-
-		string[] targets = targetAppIDs.Split(SharedInfo.ListElementSeparators, StringSplitOptions.RemoveEmptyEntries);
-
-		if (targets.Length == 0) {
-			return FormatBotResponse(Strings.FormatErrorIsEmpty(nameof(targets)));
-		}
-
-		HashSet<uint> appIDs = [];
-
-		foreach (string target in targets) {
-			if (!SteamUtilities.TryParseGameIdentifier(target, EGameIdentifier.Application, out EGameIdentifier? type, out uint appID) || (type != EGameIdentifier.Application)) {
-				return FormatBotResponse(Strings.FormatErrorParsingObject(nameof(appID)));
-			}
-
-			appIDs.Add(appID);
 		}
 
 		if (!Bot.BotDatabase.FarmingPriorityQueueAppIDs.AddRange(appIDs)) {
@@ -1516,27 +1280,6 @@ public sealed class Commands {
 		}
 
 		return FormatBotResponse(Strings.Done);
-	}
-
-	private static async Task<string?> ResponseFarmingQueueAdd(EAccess access, string botNames, string targetAppIDs, ulong steamID = 0) {
-		if (!Enum.IsDefined(access)) {
-			throw new InvalidEnumArgumentException(nameof(access), (int) access, typeof(EAccess));
-		}
-
-		ArgumentException.ThrowIfNullOrEmpty(botNames);
-		ArgumentException.ThrowIfNullOrEmpty(targetAppIDs);
-
-		HashSet<Bot>? bots = Bot.GetBots(botNames);
-
-		if ((bots == null) || (bots.Count == 0)) {
-			return access >= EAccess.Owner ? FormatStaticResponse(Strings.FormatBotNotFound(botNames)) : null;
-		}
-
-		IList<string?> results = await Utilities.InParallel(bots.Select(bot => Task.Run(() => bot.Commands.ResponseFarmingQueueAdd(GetProxyAccess(bot, access, steamID), targetAppIDs)))).ConfigureAwait(false);
-
-		List<string> responses = [.. results.Where(static result => !string.IsNullOrEmpty(result)).Select(static result => result!)];
-
-		return responses.Count > 0 ? string.Join(Environment.NewLine, responses) : null;
 	}
 
 	private string? ResponseFarmingQueueRemove(EAccess access, string targetAppIDs) {
@@ -1640,12 +1383,19 @@ public sealed class Commands {
 		return access >= EAccess.FamilySharing ? FormatBotResponse($"{SharedInfo.ProjectURL}/wiki/Commands") : null;
 	}
 
-	private string? ResponseInput(EAccess access, string propertyName, string inputValue) {
+	private static (ASF.EUserInputType, string) ParseInput(string propertyName, string inputValue) {
+		if (!Enum.TryParse(propertyName, true, out ASF.EUserInputType inputType) || (inputType == ASF.EUserInputType.None) || !Enum.IsDefined(inputType)) {
+			throw new ArgumentException(Strings.FormatErrorIsInvalid(nameof(inputType)));
+		}
+
+		return (inputType, inputValue);
+	}
+
+	private string? ResponseInput(EAccess access, ASF.EUserInputType inputType, string inputValue) {
 		if (!Enum.IsDefined(access)) {
 			throw new InvalidEnumArgumentException(nameof(access), (int) access, typeof(EAccess));
 		}
 
-		ArgumentException.ThrowIfNullOrEmpty(propertyName);
 		ArgumentException.ThrowIfNullOrEmpty(inputValue);
 
 		if (access < EAccess.Master) {
@@ -1658,35 +1408,9 @@ public sealed class Commands {
 			return FormatBotResponse(Strings.ErrorFunctionOnlyInHeadlessMode);
 		}
 
-		if (!Enum.TryParse(propertyName, true, out ASF.EUserInputType inputType) || (inputType == ASF.EUserInputType.None) || !Enum.IsDefined(inputType)) {
-			return FormatBotResponse(Strings.FormatErrorIsInvalid(nameof(inputType)));
-		}
-
 		bool result = Bot.SetUserInput(inputType, inputValue);
 
 		return FormatBotResponse(result ? Strings.Done : Strings.WarningFailed);
-	}
-
-	private static async Task<string?> ResponseInput(EAccess access, string botNames, string propertyName, string inputValue, ulong steamID = 0) {
-		if (!Enum.IsDefined(access)) {
-			throw new InvalidEnumArgumentException(nameof(access), (int) access, typeof(EAccess));
-		}
-
-		ArgumentException.ThrowIfNullOrEmpty(botNames);
-		ArgumentException.ThrowIfNullOrEmpty(propertyName);
-		ArgumentException.ThrowIfNullOrEmpty(inputValue);
-
-		HashSet<Bot>? bots = Bot.GetBots(botNames);
-
-		if ((bots == null) || (bots.Count == 0)) {
-			return access >= EAccess.Owner ? FormatStaticResponse(Strings.FormatBotNotFound(botNames)) : null;
-		}
-
-		IList<string?> results = await Utilities.InParallel(bots.Select(bot => Task.Run(() => bot.Commands.ResponseInput(GetProxyAccess(bot, access, steamID), propertyName, inputValue)))).ConfigureAwait(false);
-
-		List<string> responses = [.. results.Where(static result => !string.IsNullOrEmpty(result)).Select(static result => result!)];
-
-		return responses.Count > 0 ? string.Join(Environment.NewLine, responses) : null;
 	}
 
 	private async Task<string?> ResponseInventory(EAccess access) {
@@ -1727,26 +1451,6 @@ public sealed class Commands {
 		return response.ToString();
 	}
 
-	private static async Task<string?> ResponseInventory(EAccess access, string botNames, ulong steamID = 0) {
-		if (!Enum.IsDefined(access)) {
-			throw new InvalidEnumArgumentException(nameof(access), (int) access, typeof(EAccess));
-		}
-
-		ArgumentException.ThrowIfNullOrEmpty(botNames);
-
-		HashSet<Bot>? bots = Bot.GetBots(botNames);
-
-		if ((bots == null) || (bots.Count == 0)) {
-			return access >= EAccess.Owner ? FormatStaticResponse(Strings.FormatBotNotFound(botNames)) : null;
-		}
-
-		IList<string?> results = await Utilities.InParallel(bots.Select(bot => bot.Commands.ResponseInventory(GetProxyAccess(bot, access, steamID)))).ConfigureAwait(false);
-
-		List<string> responses = [.. results.Where(static result => !string.IsNullOrEmpty(result)).Select(static result => result!)];
-
-		return responses.Count > 0 ? string.Join(Environment.NewLine, responses) : null;
-	}
-
 	private async Task<string?> ResponseLevel(EAccess access) {
 		if (!Enum.IsDefined(access)) {
 			throw new InvalidEnumArgumentException(nameof(access), (int) access, typeof(EAccess));
@@ -1763,26 +1467,6 @@ public sealed class Commands {
 		uint? level = await Bot.ArchiHandler.GetLevel().ConfigureAwait(false);
 
 		return FormatBotResponse(level.HasValue ? Strings.FormatBotLevel(level.Value) : Strings.WarningFailed);
-	}
-
-	private static async Task<string?> ResponseLevel(EAccess access, string botNames, ulong steamID = 0) {
-		if (!Enum.IsDefined(access)) {
-			throw new InvalidEnumArgumentException(nameof(access), (int) access, typeof(EAccess));
-		}
-
-		ArgumentException.ThrowIfNullOrEmpty(botNames);
-
-		HashSet<Bot>? bots = Bot.GetBots(botNames);
-
-		if ((bots == null) || (bots.Count == 0)) {
-			return access >= EAccess.Owner ? FormatStaticResponse(Strings.FormatBotNotFound(botNames)) : null;
-		}
-
-		IList<string?> results = await Utilities.InParallel(bots.Select(bot => bot.Commands.ResponseLevel(GetProxyAccess(bot, access, steamID)))).ConfigureAwait(false);
-
-		List<string> responses = [.. results.Where(static result => !string.IsNullOrEmpty(result)).Select(static result => result!)];
-
-		return responses.Count > 0 ? string.Join(Environment.NewLine, responses) : null;
 	}
 
 	private async Task<string?> ResponseLoot(EAccess access) {
@@ -1805,26 +1489,6 @@ public sealed class Commands {
 		(bool success, string message) = await Bot.Actions.SendInventory(filterFunction: item => Bot.BotConfig.LootableTypes.Contains(item.Type)).ConfigureAwait(false);
 
 		return FormatBotResponse(success ? message : Strings.FormatWarningFailedWithError(message));
-	}
-
-	private static async Task<string?> ResponseLoot(EAccess access, string botNames, ulong steamID = 0) {
-		if (!Enum.IsDefined(access)) {
-			throw new InvalidEnumArgumentException(nameof(access), (int) access, typeof(EAccess));
-		}
-
-		ArgumentException.ThrowIfNullOrEmpty(botNames);
-
-		HashSet<Bot>? bots = Bot.GetBots(botNames);
-
-		if ((bots == null) || (bots.Count == 0)) {
-			return access >= EAccess.Owner ? FormatStaticResponse(Strings.FormatBotNotFound(botNames)) : null;
-		}
-
-		IList<string?> results = await Utilities.InParallel(bots.Select(bot => bot.Commands.ResponseLoot(GetProxyAccess(bot, access, steamID)))).ConfigureAwait(false);
-
-		List<string> responses = [.. results.Where(static result => !string.IsNullOrEmpty(result)).Select(static result => result!)];
-
-		return responses.Count > 0 ? string.Join(Environment.NewLine, responses) : null;
 	}
 
 	private async Task<string?> ResponseLootByRealAppIDs(EAccess access, string realAppIDsText, bool exclude) {
@@ -3766,26 +3430,6 @@ public sealed class Commands {
 		}
 
 		return !Bot.IsConnectedAndLoggedOn ? FormatBotResponse(Strings.BotNotConnected) : FormatBotResponse(Bot.WalletCurrency != ECurrencyCode.Invalid ? Strings.FormatBotWalletBalance($"{Bot.WalletBalance / 100.0}{(Bot.WalletBalanceDelayed > 0 ? $" ({(Bot.WalletBalance + Bot.WalletBalanceDelayed) / 100.0})" : "")}", Bot.WalletCurrency.ToString()) : Strings.BotHasNoWallet);
-	}
-
-	private static async Task<string?> ResponseWalletBalance(EAccess access, string botNames, ulong steamID = 0) {
-		if (!Enum.IsDefined(access)) {
-			throw new InvalidEnumArgumentException(nameof(access), (int) access, typeof(EAccess));
-		}
-
-		ArgumentException.ThrowIfNullOrEmpty(botNames);
-
-		HashSet<Bot>? bots = Bot.GetBots(botNames);
-
-		if ((bots == null) || (bots.Count == 0)) {
-			return access >= EAccess.Owner ? FormatStaticResponse(Strings.FormatBotNotFound(botNames)) : null;
-		}
-
-		IList<string?> results = await Utilities.InParallel(bots.Select(bot => Task.Run(() => bot.Commands.ResponseWalletBalance(GetProxyAccess(bot, access, steamID))))).ConfigureAwait(false);
-
-		List<string> responses = [.. results.Where(static result => !string.IsNullOrEmpty(result)).Select(static result => result!)];
-
-		return responses.Count > 0 ? string.Join(Environment.NewLine, responses) : null;
 	}
 
 	[Flags]
